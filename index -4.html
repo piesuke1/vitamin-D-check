@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>ビタミンDチェック</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0"></script>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 10px;
+  background-color: #f5f5f5;
+}
+.warning-box {
+  border:1px solid #ccc; 
+  padding:10px; 
+  margin-bottom:15px; 
+  font-size:0.9em;
+  background-color: #fff3cd;
+  border-radius: 8px;
+}
+h1 { text-align: center; margin-bottom: 0; font-size:1.8em; }
+h2 { font-size: 1em; text-align: center; color:#555; margin-top: 0; }
+.block { margin-bottom: 15px; padding: 10px; border-radius: 8px; background-color:#fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1);}
+label { font-weight: bold; display:block; margin-bottom:5px; }
+input[type=number], select { width:100%; padding:8px; font-size:1em; margin-bottom:5px; box-sizing:border-box; }
+button { padding:10px 20px; font-size:1.2em; background-color:#3498db; color:white; border:none; border-radius:5px; cursor:pointer; width:100%; display:block; margin-bottom:15px;}
+button:hover { background-color:#2980b9; }
+#result { font-size:1.5em; margin-bottom:15px; padding:15px; border-radius:8px; text-align:center;}
+canvas { width:100% !important; height:auto !important; margin-bottom:20px; background-color:#fff; border-radius:8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);}
+.notice { font-size:0.8em; color:#555; margin-top:5px;}
+.description { font-size:0.8em; color:#333; margin-bottom:5px; }
+
+@media (max-width: 480px){
+  h1 { font-size:1.5em; }
+  button { font-size:1em; }
+  #result { font-size:1.2em; }
+  input[type=number], select { font-size:0.9em; }
+}
+</style>
+</head>
+<body>
+
+<div class="warning-box">
+  <strong>【注意】</strong><br>
+  本アプリの判定は、食事および日光による<br>
+  体内ビタミンD供給量の合計を<br>
+  理論的必要量（約15 µg/日）と比較した<br>
+  参考指標です。<br><br>
+  日光による生成量は、<br>
+  千葉県市川市付近（北緯約35.7度）の<br>
+  月平均日照条件を基に近似しています。
+</div>
+
+<h1>ビタミンD摂取チェック</h1>
+<h2>和洋女子大学健康栄養学科 鈴木ゼミ</h2>
+<p id="today"></p>
+<p>※これは推定ツールです</p>
+
+<!-- 今日の天気 -->
+<div class="block">
+  <label>今日の天気</label>
+  <div class="description">晴れは紫外線100%、曇りは60%、雨は30%で計算します。</div>
+  <select id="weather">
+    <option value="1.0">晴れ</option>
+    <option value="0.6">曇り</option>
+    <option value="0.3">雨</option>
+  </select>
+</div>
+
+<!-- 屋外活動 -->
+<div class="block">
+  <p>屋外での活動についての質問</p>
+
+  <label>6:00–10:59 屋外での活動および移動の時間（分）</label>
+  <div class="description">朝の時間帯の屋外活動時間を分単位で入力してください。</div>
+  <input type="number" id="morning">
+
+  <label>11:00–13:59 屋外での活動および移動の時間（分）</label>
+  <div class="description">昼の時間帯の屋外活動時間を分単位で入力してください。</div>
+  <input type="number" id="noon">
+
+  <label>14:00–17:00 屋外での活動および移動の時間（分）</label>
+  <div class="description">夕方の時間帯の屋外活動時間を分単位で入力してください。</div>
+  <input type="number" id="afternoon">
+
+  <label><input type="checkbox" id="sunblock">日よけグッズ・日焼け止めを使用した</label>
+
+  <label>日陰にいた割合</label>
+  <select id="shade">
+    <option value="1.0">日陰なし</option>
+    <option value="0.75">半々</option>
+    <option value="0.5">ほぼ日陰</option>
+  </select>
+</div>
+
+<!-- 食事・サプリメント -->
+<div class="block">
+  <p>食事・サプリメントについての質問</p>
+
+  <label>魚類の摂取量</label>
+  <div class="description">小鉢1品=2.5µg、切り身1=8.5µg、2切以上=17µgで計算します。</div>
+  <select id="fish">
+    <option value="0">なし（0 g）</option>
+    <option value="2.5">少量（小鉢1品：30 g）</option>
+    <option value="8.5">中量（切り身1：90 g）</option>
+    <option value="17">多量（2切以上：180 g）</option>
+  </select>
+
+  <label>ビタミンDサプリの摂取</label>
+  <label><input type="radio" name="supplement" value="0" checked>摂取していない</label>
+  <label><input type="radio" name="supplement" value="10">サプリ10 µg</label>
+  <label><input type="radio" name="supplement" value="25">サプリ25 µg以上</label>
+
+  <label>ビタミンD強化食品を摂取した</label>
+  <label><input type="radio" name="fortified" value="0" checked>いいえ</label>
+  <label><input type="radio" name="fortified" value="2">はい (+2 µg)</label>
+</div>
+
+<button onclick="check()">判定する</button>
+
+<p id="result"></p>
+<canvas id="vdChart"></canvas>
+
+<p class="notice">
+  ※切り身1は可食部約90 gとして近似しています。<br>
+  ※魚種や調理法によりビタミンD量は変動します。
+</p>
+
+<script>
+const uvTable={1:0.26,2:0.42,3:0.57,4:0.85,5:0.98,6:1.03,7:1.00,8:1.23,9:0.82,10:0.52,11:0.34,12:0.22};
+const today=new Date();
+const month=today.getMonth()+1;
+const date=today.getDate();
+document.getElementById("today").innerText="今日は "+month+"月"+date+"日 です";
+
+// 時間帯補正
+let morningFactor,noonFactor,afternoonFactor;
+if(month>=6 && month<=8){ morningFactor=0.5; noonFactor=1.0; afternoonFactor=0.5; }
+else if(month==12 || month<=2){ morningFactor=0.2; noonFactor=0.8; afternoonFactor=0.2; }
+else{ morningFactor=0.35; noonFactor=0.9; afternoonFactor=0.35; }
+
+function check(){
+  const morningTime=Number(document.getElementById("morning").value)||0;
+  const noonTime=Number(document.getElementById("noon").value)||0;
+  const afternoonTime=Number(document.getElementById("afternoon").value)||0;
+  const sunblockUsed=document.getElementById("sunblock").checked;
+  const sunblockFactor=sunblockUsed?0.2:1.0;
+  const weatherFactor=Number(document.getElementById("weather").value);
+  const shadeFactor=Number(document.getElementById("shade").value);
+  const BASE_MINUTES=15, BASE_VD=10;
+
+  const morningVD=(morningTime/BASE_MINUTES)*BASE_VD*uvTable[month]*morningFactor*sunblockFactor*weatherFactor*shadeFactor;
+  const noonVD=(noonTime/BASE_MINUTES)*BASE_VD*uvTable[month]*noonFactor*sunblockFactor*weatherFactor*shadeFactor;
+  const afternoonVD=(afternoonTime/BASE_MINUTES)*BASE_VD*uvTable[month]*afternoonFactor*sunblockFactor*weatherFactor*shadeFactor;
+  const sunlightVD=morningVD+noonVD+afternoonVD;
+
+  const fishVD=Number(document.getElementById("fish").value);
+  const supplementRadios=document.getElementsByName("supplement");
+  let supplementVD=0;
+  for(let i=0;i<supplementRadios.length;i++){ if(supplementRadios[i].checked){ supplementVD=Number(supplementRadios[i].value); break; } }
+  const fortifiedRadios=document.getElementsByName("fortified");
+  let fortifiedVD=0;
+  for(let i=0;i<fortifiedRadios.length;i++){ if(fortifiedRadios[i].checked){ fortifiedVD=Number(fortifiedRadios[i].value); break; } }
+
+  const totalVD = sunlightVD + fishVD + supplementVD + fortifiedVD;
+
+  let status="", color="";
+  if(totalVD<15){ status="不足"; color="red"; }
+  else if(totalVD<=100){ status="充足"; color="green"; }
+  else{ status="過剰"; color="orange"; }
+
+  document.getElementById("result").innerHTML=
+    "総ビタミンD供給量（推定）: <strong>"+totalVD.toFixed(1)+" µg</strong><br>"+
+    "判定（目安15 µg/日）: <span style='color:"+color+"; font-weight:bold;'>"+status+"</span>";
+
+  const ctx=document.getElementById('vdChart').getContext('2d');
+  if(window.vdChartInstance) window.vdChartInstance.destroy();
+
+  window.vdChartInstance=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:['ビタミンD供給量'],
+      datasets:[
+        {label:'日光', data:[sunlightVD.toFixed(1)], backgroundColor:'#f39c12', stack:'a'},
+        {label:'魚', data:[fishVD.toFixed(1)], backgroundColor:'#3498db', stack:'a'},
+        {label:'サプリ', data:[supplementVD.toFixed(1)], backgroundColor:'#2ecc71', stack:'a'},
+        {label:'強化食品', data:[fortifiedVD.toFixed(1)], backgroundColor:'#9b59b6', stack:'a'}
+      ]
+    },
+    options:{
+      responsive:true,
+      scales:{x:{stacked:true},y:{stacked:true}},
+      plugins:{
+        legend:{position:'top'},
+        annotation:{
+          annotations:{line1:{type:'line', yMin:15, yMax:15, borderColor:'red', borderWidth:2, label:{content:'目安15 µg', enabled:true, position:'end', backgroundColor:'white'}}}
+        },
+        datalabels:{color:'#000', font:{weight:'bold'}, formatter:function(value){ return value+' µg'; }, anchor:'center', align:'center'}
+      }
+    },
+    plugins:[ChartDataLabels, Chart.registry.getPlugin('annotation')||{}]
+  });
+}
+</script>
+
+</body>
+</html>
